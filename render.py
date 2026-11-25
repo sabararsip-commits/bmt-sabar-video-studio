@@ -6,7 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
-import edge_tts
+from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
 
 W, H, FPS, DURATION = 720, 1280, 12, 30
@@ -125,7 +125,7 @@ def draw_frame(t, idx):
     d.text((55,1220),"Bersama membangun ketenangan finansial",font=font(17),fill=MUTED)
     return im
 
-async def make_voice():
+def make_voice():
     narration = (
         "Merencanakan masa depan bisa dimulai dengan pilihan yang lebih tenang. "
         "Kenali Deposito Berhadiah BMT SABAR, produk simpanan berjangka dengan prinsip syariah. "
@@ -134,12 +134,18 @@ async def make_voice():
         "Ingin tahu lebih lanjut? Hubungi BMT SABAR dan dapatkan informasi resmi. "
         "BMT SABAR. Tumbuh bersama dalam keberkahan."
     )
-    communicate = edge_tts.Communicate(narration, "id-ID-ArdiNeural", rate="-4%", volume="+0%")
-    await communicate.save(str(OUT / "voice.mp3"))
+    # Google TTS Indonesian endpoint; pitch-shift slightly lower in FFmpeg for a mature male-style delivery.
+    gTTS(text=narration, lang="id", slow=False).save(str(OUT / "voice_raw.mp3"))
+    subprocess.run([
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-i", str(OUT / "voice_raw.mp3"),
+        "-af", "asetrate=44100*0.94,aresample=44100,atempo=1.0638",
+        "-b:a", "128k", str(OUT / "voice.mp3")
+    ], check=True)
 
 def main():
     print("Membuat narasi suara pria Indonesia...")
-    asyncio.run(make_voice())
+    make_voice()
     total = FPS * DURATION
     print(f"Menggambar {total} frame video...")
     for i in range(total):
